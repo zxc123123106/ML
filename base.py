@@ -47,6 +47,6 @@ ypred_leaf = bst.predict(dtest, pred_leaf=True)
 ypred_contribs = bst.predict(dtest, pred_contribs=True)
 # 輸出每個特徵對該預測值的貢獻度（偏離平均值的程度）。最後一列是 Bias (基準值)。
 
-xgb.plot_importance(bst, height=0.8, title='影响糖尿病的重要特征', ylabel='特征')
+xgb.plot_importance(bst, height=0.8, title='Key features', ylabel='features')
 plt.rc('font', family='Arial Unicode MS', size=14) # 設定中文顯示字型
 plt.show()
