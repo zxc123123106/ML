@@ -30,23 +30,24 @@ dtrain = xgb.DMatrix(train_x, label=train_y)
 dtest = xgb.DMatrix(test_x)
 watchlist = [(dtrain, 'train')]
 
-bst = xgb.train(params, dtrain, num_boost_round=50, evals=watchlist)
-
+bst = xgb.train(params, dtrain, num_boost_round=500, evals=watchlist)
 ypred = bst.predict(dtest) # 預測結果為 0~1 之間的機率值
-y_pred = (ypred >= 0.5) * 1 # 將機率轉化為類別：大於等於 0.5 為 1 (患病)，否則為 0
 
-# 1. 每個樣本的得分
-ypred = bst.predict(dtest) 
-# 輸出的是每個測試樣本被預測為「1」的機率
+# 设置阈值、评价指标
+y_pred = (ypred >= 0.5)*1
+print ('Precesion: %.4f' %metrics.precision_score(test_y,y_pred))
+print ('Recall: %.4f' % metrics.recall_score(test_y,y_pred))
+print ('F1-score: %.4f' %metrics.f1_score(test_y,y_pred))
+print ('Accuracy: %.4f' % metrics.accuracy_score(test_y,y_pred))
+print ('AUC: %.4f' % metrics.roc_auc_score(test_y,ypred))
 
-# 2. 每個樣本在每棵樹所屬的節點
+ypred = bst.predict(dtest)
+print("Scroes of every test set's smaple\n",ypred)
 ypred_leaf = bst.predict(dtest, pred_leaf=True)
-# 輸出一個矩陣 (樣本數, 樹的數量)，顯示樣本最後掉落在每棵樹的哪個葉子節點索引。這可用於特徵轉化。
-
-# 3. 特徵貢獻度 (SHAP 值的概念)
+print("The number of nodes of every test set's tree\n",ypred_leaf)
 ypred_contribs = bst.predict(dtest, pred_contribs=True)
-# 輸出每個特徵對該預測值的貢獻度（偏離平均值的程度）。最後一列是 Bias (基準值)。
+print("Importance of features\n",ypred_contribs )
 
-xgb.plot_importance(bst, height=0.8, title='Key features', ylabel='features')
-plt.rc('font', family='Arial Unicode MS', size=14) # 設定中文顯示字型
+xgb.plot_importance(bst,height=0.8,title='key features', ylabel='features')
+plt.rc('font', family='Arial Unicode MS', size=14)
 plt.show()
