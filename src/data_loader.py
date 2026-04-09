@@ -57,8 +57,8 @@ def align_data(sensor_data_path, pond_daily_logs_path, min_records_per_day=10):
 if __name__ == '__main__':
     # Example Usage:
     # Adjust these paths to your actual file locations
-    SENSOR_DATA_PATH = 'src/practice_data/sensor_data_202603291749.csv'
-    POND_DAILY_LOGS_PATH = 'src/practice_data/pond_daily_logs_202603291749.csv'
+    SENSOR_DATA_PATH = 'data/raw/sensor_data_202603291749.csv'
+    POND_DAILY_LOGS_PATH = 'data/raw/pond_daily_logs_202603291749.csv'
 
     print(f"Loading sensor data from: {SENSOR_DATA_PATH}")
     print(f"Loading pond daily logs from: {POND_DAILY_LOGS_PATH}")

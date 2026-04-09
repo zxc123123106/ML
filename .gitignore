@@ -1,1 +1,12 @@
 .DS_Store
+
+# 忽略所有 Python 快取
+__pycache__/
+*.pyc
+
+# 忽略 Jupyter Notebook 的快取
+.ipynb_checkpoints/
+
+# 忽略虛擬環境 (如果有的話)
+venv/
+.venv/
