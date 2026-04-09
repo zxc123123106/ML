@@ -8,7 +8,7 @@ params = {
     'booster': 'gbtree',          # 使用基於樹的模型 (預設)
     'objective': 'binary:logistic',# 指定任務為「二分類」並輸出機率
     'eval_metric': 'auc',         # 評價指標使用 AUC (ROC 曲線下面積)
-    'max_depth': 5,               # 樹的最大深度，深度越高越容易過擬合
+    'max_depth': 5,                # 樹的最大深度，深度越高越容易過擬合
     'lambda': 10,                 # L2 正則化權重，數值越大模型越保守
     'subsample': 0.75,            # 訓練每棵樹時隨機採樣 75% 的數據，防止過擬合
     'colsample_bytree': 0.75,     # 訓練每棵樹時隨機採樣 75% 的特徵
