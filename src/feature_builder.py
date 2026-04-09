@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from data_loader import align_data, impute_missing_sensor_values, handle_outliers
+from .data_loader import align_data, impute_missing_sensor_values, handle_outliers
 
 def daily_aggregation(sensor_df):
     """
