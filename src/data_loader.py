@@ -54,6 +54,56 @@ def align_data(sensor_data_path, pond_daily_logs_path, min_records_per_day=10):
 
     return sensor_data, pond_daily_logs
 
+def impute_missing_sensor_values(df):
+    """
+    Applies forward fill to specified sensor columns to handle missing values.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing sensor data.
+
+    Returns:
+        pd.DataFrame: The DataFrame with missing sensor values imputed.
+    """
+    sensor_cols_to_impute = ['ph', 'turbidity', 'mq135', 'mq137', 'temp_deep', 'temp_shallow']
+    
+    # Ensure the DataFrame is sorted by time for accurate forward fill
+    # Assuming 'created_at' is the time column and 'pond_id' to group by each pond
+    df = df.sort_values(by=['pond_id', 'created_at'])
+
+    for col in sensor_cols_to_impute:
+        if col in df.columns:
+            df[col] = df.groupby('pond_id')[col].ffill()
+            # Optionally, backfill any remaining NaNs if the first values are missing
+            df[col] = df.groupby('pond_id')[col].bfill()
+    return df
+
+def handle_outliers(df):
+    """
+    Handles outliers for specific water quality data columns by converting values
+    outside reasonable bounds to NaN and then filling them with linear interpolation.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing sensor data.
+
+    Returns:
+        pd.DataFrame: The DataFrame with outliers handled.
+    """
+    # Define bounds for ph and temp_deep
+    ph_min, ph_max = 0, 14
+    temp_deep_min, temp_deep_max = 10, 40
+
+    # Process 'ph'
+    if 'ph' in df.columns:
+        df.loc[(df['ph'] < ph_min) | (df['ph'] > ph_max), 'ph'] = None
+        df['ph'] = df.groupby('pond_id')['ph'].transform(lambda x: x.interpolate(method='linear', limit_direction='both'))
+
+    # Process 'temp_deep'
+    if 'temp_deep' in df.columns:
+        df.loc[(df['temp_deep'] < temp_deep_min) | (df['temp_deep'] > temp_deep_max), 'temp_deep'] = None
+        df['temp_deep'] = df.groupby('pond_id')['temp_deep'].transform(lambda x: x.interpolate(method='linear', limit_direction='both'))
+
+    return df
+
 if __name__ == '__main__':
     # Example Usage:
     # Adjust these paths to your actual file locations
@@ -66,13 +116,22 @@ if __name__ == '__main__':
     processed_sensor_data, processed_pond_daily_logs = align_data(
         SENSOR_DATA_PATH, POND_DAILY_LOGS_PATH
     )
-
-    print("\nProcessed Sensor Data Head:")
+    print("\nProcessed Sensor Data Head after alignment:")
     print(processed_sensor_data.head())
-    print("\nProcessed Sensor Data Info:")
-    processed_sensor_data.info()
 
-    print("\nProcessed Pond Daily Logs Head:")
-    print(processed_pond_daily_logs.head())
-    print("\nProcessed Pond Daily Logs Info:")
-    processed_pond_daily_logs.info()
+    print("\nImputing missing sensor values...")
+    processed_sensor_data = impute_missing_sensor_values(processed_sensor_data.copy())
+    print("Imputation complete.")
+    print("NaNs after imputation (should be significantly reduced or 0 for specified columns):")
+    print(processed_sensor_data[['ph', 'turbidity', 'mq135', 'mq137', 'temp_deep', 'temp_shallow']].isnull().sum())
+
+    print("\nHandling outliers...")
+    processed_sensor_data = handle_outliers(processed_sensor_data.copy())
+    print("Outlier handling complete.")
+    print("Sample data after outlier handling for 'ph' and 'temp_deep':")
+    print(processed_sensor_data[['pond_id', 'created_at', 'ph', 'temp_deep']].head())
+
+    print("\nFull cleaned sensor data info:")
+    processed_sensor_data.info()
+    print("\nFull cleaned sensor data head:")
+    print(processed_sensor_data.head())

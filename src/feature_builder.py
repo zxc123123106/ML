@@ -1,6 +1,6 @@
 import pandas as pd
-from data_loader import align_data
-from cleaner import impute_missing_sensor_values, handle_outliers
+import os
+from data_loader import align_data, impute_missing_sensor_values, handle_outliers
 
 def daily_aggregation(sensor_df):
     """
@@ -32,7 +32,8 @@ def daily_aggregation(sensor_df):
     if 'ph_max' in daily_agg_df.columns and 'ph_min' in daily_agg_df.columns:
         daily_agg_df['ph_range'] = daily_agg_df['ph_max'] - daily_agg_df['ph_min']
 
-        return daily_agg_df
+    return daily_agg_df
+
 def create_domain_specific_features(sensor_df):
     """
     Creates domain-specific features like Vertical Temp Diff and Ammonia Surge.
@@ -55,12 +56,15 @@ def create_domain_specific_features(sensor_df):
     if 'mq137' in sensor_df.columns and 'created_at' in sensor_df.columns:
         sensor_df = sensor_df.sort_values(by=['pond_id', 'created_at'])
         # Calculate difference over a 6-hour window (approx 6*60/sampling_rate if sampling is per minute)
-        # Assuming sensor_df is already at a relatively high frequency (e.g., minutes).
         # We'll use a 6-hour rolling window to calculate the change.
         # This is a simplification; a more robust solution would consider actual time differences.
-        sensor_df['mq137_6hr_change'] = sensor_df.groupby('pond_id')['mq137'].diff(periods=6*60) # Assuming minutely data
+        # Use .diff() with a period based on assumed data frequency
+        # For simplicity, assuming `created_at` records are roughly minute-by-minute, 6 hours = 360 periods.
+        # A more accurate approach would involve resampling or custom time window calculations.
+        sensor_df['mq137_6hr_change'] = sensor_df.groupby('pond_id')['mq137'].diff(periods=360) 
     
     return sensor_df
+
 def create_lag_rolling_features(combined_df):
     """
     Creates lag and rolling features.
@@ -81,7 +85,7 @@ def create_lag_rolling_features(combined_df):
     if 'feeding_amount' in combined_df.columns:
         combined_df['feeding_amount_lag1'] = combined_df.groupby('pond_id')['feeding_amount'].shift(1)
 
-    # Rolling-3: 3-day moving average of Ammonia (mq137_mean) and pH volatility (ph_std)
+    # Rolling-3: 3-day moving average of Ammonia (mq137_mean) and pH volatility (ph_range)
     # Assuming daily_agg_df is already merged and relevant columns exist
     if 'mq137_mean' in combined_df.columns:
         combined_df['mq137_mean_roll3'] = combined_df.groupby('pond_id')['mq137_mean'].rolling(window=3, min_periods=1).mean().reset_index(level=0, drop=True)
@@ -90,32 +94,42 @@ def create_lag_rolling_features(combined_df):
         combined_df['ph_range_roll3'] = combined_df.groupby('pond_id')['ph_range'].rolling(window=3, min_periods=1).mean().reset_index(level=0, drop=True)
     
     return combined_df
-if __name__ == '__main__':
-    SENSOR_DATA_PATH = 'data/raw/sensor_data_202603291749.csv'
-    POND_DAILY_LOGS_PATH = 'data/raw/pond_daily_logs_202603291749.csv'
 
-    print("Step 1: Aligning data...")
-    sensor_data_aligned, pond_daily_logs_df = align_data(SENSOR_DATA_PATH, POND_DAILY_LOGS_PATH)
-    print("Alignment complete.")
+def build_features_and_split(sensor_data_path, pond_daily_logs_path, output_dir='data/processed', test_split_ratio=0.2):
+    """
+    Builds features, merges with daily logs, and performs a chronological train/test split.
 
-    print("\nStep 2: Cleaning sensor data (imputation and outlier handling)...")
+    Args:
+        sensor_data_path (str): Path to the sensor data CSV file.
+        pond_daily_logs_path (str): Path to the pond daily logs CSV file.
+        output_dir (str): Directory to save processed CSVs.
+        test_split_ratio (float): Ratio of data to use for the test set (e.g., 0.2 for 20%).
+
+    Returns:
+        tuple: (train_df, test_df)
+    """
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 1. Load and Clean Data
+    print("Step 1: Loading and cleaning data...")
+    sensor_data_aligned, pond_daily_logs_df = align_data(sensor_data_path, pond_daily_logs_path)
     sensor_data_imputed = impute_missing_sensor_values(sensor_data_aligned.copy())
     sensor_data_cleaned = handle_outliers(sensor_data_imputed.copy())
-    print("Cleaning complete.")
+    print("Data loading and cleaning complete.")
 
-    print("\nStep 3: Creating domain-specific features on high-frequency data...")
+    # 2. Create Domain-Specific Features
+    print("\nStep 2: Creating domain-specific features on high-frequency data...")
     sensor_data_with_domain_features = create_domain_specific_features(sensor_data_cleaned.copy())
     print("Domain-specific features created.")
-    print("Sample with vertical_temp_diff and mq137_6hr_change:")
-    print(sensor_data_with_domain_features[['pond_id', 'created_at', 'temp_shallow', 'temp_deep', 'vertical_temp_diff', 'mq137', 'mq137_6hr_change']].head())
 
-    print("\nStep 4: Performing daily aggregation...")
+    # 3. Perform Daily Aggregation
+    print("\nStep 3: Performing daily aggregation...")
     daily_features_df = daily_aggregation(sensor_data_with_domain_features.copy())
     print("Daily aggregation complete.")
-    print("Daily aggregated features head:")
-    print(daily_features_df.head())
 
-    print("\nStep 5: Merging daily features with pond daily logs...")
+    # 4. Merge Daily Features with Pond Daily Logs
+    print("\nStep 4: Merging daily features with pond daily logs...")
     # Ensure 'date' column in pond_daily_logs_df is also datetime
     pond_daily_logs_df['date'] = pd.to_datetime(pond_daily_logs_df['log_date']).dt.date
     pond_daily_logs_df['date'] = pd.to_datetime(pond_daily_logs_df['date']) # Convert to datetime objects for consistent merging
@@ -124,19 +138,61 @@ if __name__ == '__main__':
     if 'medication_given' in pond_daily_logs_df.columns:
         pond_daily_logs_df['medication_given'] = pond_daily_logs_df['medication_given'].astype(int)
 
-    combined_df = pd.merge(daily_features_df, pond_daily_logs_df[['pond_id', 'date', 'death_count', 'feeding_amount', 'medication_given']], 
-                           on=['pond_id', 'date'], how='left')
+    merged_daily_features = pd.merge(daily_features_df, pond_daily_logs_df[['pond_id', 'date', 'death_count', 'feeding_amount', 'medication_given']], 
+                                   on=['pond_id', 'date'], how='left')
     print("Merge complete.")
-    print("Combined DataFrame head after merge:")
-    print(combined_df.head())
 
-    print("\nStep 6: Creating lag and rolling features...")
-    final_features_df = create_lag_rolling_features(combined_df.copy())
+    # 5. Create Lag and Rolling Features
+    print("\nStep 5: Creating lag and rolling features...")
+    final_features_df = create_lag_rolling_features(merged_daily_features.copy())
     print("Lag and rolling features created.")
-    print("Final features DataFrame head:")
-    print(final_features_df.head())
 
-    print("\nFinal features DataFrame Info:")
-    final_features_df.info()
-    print("\nMissing values in final_features_df after all steps:")
-    print(final_features_df.isnull().sum())
+    # Persistence Step 1: Save merged_daily_features.csv
+    merged_output_path = os.path.join(output_dir, 'merged_daily_features.csv')
+    final_features_df.to_csv(merged_output_path, index=False)
+    print(f"\nMerged daily features saved to: {merged_output_path}")
+
+    # 6. Chronological Train/Test Split
+    print("\nStep 6: Performing chronological train/test split...")
+    final_features_df = final_features_df.sort_values(by='date').reset_index(drop=True)
+    
+    split_index = int(len(final_features_df) * (1 - test_split_ratio))
+    train_df = final_features_df.iloc[:split_index]
+    test_df = final_features_df.iloc[split_index:]
+
+    print(f"Train set size: {len(train_df)} records, from {train_df['date'].min()} to {train_df['date'].max()}")
+    print(f"Test set size: {len(test_df)} records, from {test_df['date'].min()} to {test_df['date'].max()}")
+
+    # Task F: Feature & Label Validation
+    if 'death_count' not in test_df.columns:
+        print("Warning: 'death_count' missing from test_df, but it is required for evaluation.")
+    else:
+        print("'death_count' present in test_df for evaluation.")
+
+
+    # Persistence Step 2: Save train_set.csv and test_set.csv
+    train_output_path = os.path.join(output_dir, 'train_set.csv')
+    test_output_path = os.path.join(output_dir, 'test_set.csv')
+    
+    train_df.to_csv(train_output_path, index=False)
+    test_df.to_csv(test_output_path, index=False)
+    print(f"Train set saved to: {train_output_path}")
+    print(f"Test set saved to: {test_output_path}")
+
+    return train_df, test_df
+
+if __name__ == '__main__':
+    SENSOR_DATA_PATH = 'data/raw/sensor_data_202603291749.csv'
+    POND_DAILY_LOGS_PATH = 'data/raw/pond_daily_logs_202603291749.csv'
+    OUTPUT_DATA_DIR = 'data/processed'
+
+    print("--- Starting Feature Building and Data Splitting ---")
+    train_set, test_set = build_features_and_split(
+        SENSOR_DATA_PATH, POND_DAILY_LOGS_PATH, OUTPUT_DATA_DIR
+    )
+    print("\n--- Feature Building and Data Splitting Complete ---")
+
+    print("\nTrain set head:")
+    print(train_set.head())
+    print("\nTest set head:")
+    print(test_set.head())
