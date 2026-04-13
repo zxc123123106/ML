@@ -1,5 +1,5 @@
 import pandas as pd
-# from src.data_loader import align_data
+from src.data_loader import align_data
 
 def impute_missing_sensor_values(df):
     """
