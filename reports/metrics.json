@@ -1,0 +1,19 @@
+{
+  "tuning_method": "optuna",
+  "cv_best_rmse": 2.5106165726221166,
+  "train": {
+    "mae": 0.44550071337393354,
+    "rmse": 0.8548444855174014,
+    "r2": 0.9419421230213928,
+    "n_samples": 28
+  },
+  "test": {
+    "mae": 1.600173910910433,
+    "rmse": 2.0616382393968267,
+    "r2": 0.0,
+    "n_samples": 11
+  },
+  "labeled_train_samples": 28,
+  "labeled_test_samples": 11,
+  "model_path": "models/final_best_model.json"
+}

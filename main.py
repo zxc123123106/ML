@@ -13,8 +13,8 @@ MERGED_DAILY_FEATURES_PATH = os.path.join(OUTPUT_DATA_DIR, 'merged_daily_feature
 def main():
     """
     Orchestrates the entire data processing and machine learning pipeline.
-    Includes data loading, feature engineering, train/test split, and
-    placeholders for model training and evaluation.
+    Includes data loading, feature engineering, train/test split, and guidance
+    for the model training/evaluation entry point.
     """
     print("--- Starting Main Data Processing Pipeline ---")
 
@@ -41,21 +41,9 @@ def main():
     print(f"Test set loaded with shape: {test_df.shape}")
 
     # --- Phase 3: Machine Learning with XGBoost ---
-    print("\n--- Phase 3: Machine Learning with XGBoost (Placeholder) ---")
-    print("TODO: Implement XGBoost model training, hyperparameter tuning, and evaluation here.")
-    print("      Refer to GEMINI.md 'Phase 3' and 'Key Execution Tasks' for details.")
-
-    # Example: Accessing features and labels
-    # X_train = train_df.drop('death_count', axis=1)
-    # y_train = train_df['death_count']
-    # X_test = test_df.drop('death_count', axis=1)
-    # y_test = test_df['death_count']
-
-    # TODO:
-    # - Train XGBoost model
-    # - Perform hyperparameter tuning (e.g., using Optuna)
-    # - Evaluate model using MAE, RMSE, R-squared
-    # - Generate SHAP summary plots for explainability
+    print("\n--- Phase 3: Machine Learning with XGBoost ---")
+    print("Run `python3 -m src.trainer` to train, tune, evaluate, and export model artifacts.")
+    print("      Outputs include models/final_best_model.json and reports/figures/*.png.")
 
     print("\n--- Main Data Processing Pipeline Finished ---")
 
